@@ -132,7 +132,9 @@ const Home = () => {
                             block
                             onClick={e => {
                                 axios
-                                    .get("http://localhost/api/channels")
+                                    .get(
+                                        `${window.location.origin}/api/channels`
+                                    )
                                     .then(res => {
                                         if (res.status === 200) {
                                             res.data["data"].forEach(el => {
