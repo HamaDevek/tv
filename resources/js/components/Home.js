@@ -19,7 +19,6 @@ import {
     DownloadOutlined
 } from "@ant-design/icons";
 import React from "react";
-import ReactDOM from "react-dom";
 
 const { Content } = Layout;
 const { Search } = Input;
@@ -40,82 +39,73 @@ const Home = () => {
             icon: <SmileOutlined style={{ color: "#108ee9" }} />
         });
     };
+    const load = false;
     const [loading, setLoading] = useState(false);
     const [dataTable, setDataTable] = useState([]);
     const [search, setSearch] = useState("");
     const [timeout, setTimeout] = useState(3);
     const [playlistinfo, setPlaylistinfo] = useState([]);
     useEffect(() => {}, [playlistinfo]);
-    const onClickHandling = e => {
+    const onClickHandling = async e => {
         setLoading(true);
-        axios
-            .post(
-                `${window.location.origin}/api/get_api`,
-                {
-                    url: `${e}`,
-                    timeout: `${timeout}`
-                },
-                {
-                    headers: {
-                        "Access-Control-Allow-Origin": "*"
+        const res = await axios.post(
+            `${window.location.origin}/api/get_api`,
+            {
+                url: `${e}`,
+                timeout: `${timeout}`
+            },
+            {
+                headers: {
+                    "Access-Control-Allow-Origin": "*"
+                }
+            }
+        );
+        if (res.status === 200) {
+            if (res.data["user_info"]["auth"] === 1) {
+                // let data = [];
+                let url = `${res.data["server_info"]["server_protocol"]}://${res.data["server_info"]["url"]}:${res.data["server_info"]["port"]}`;
+                let username = `${res.data["user_info"]["username"]}`;
+                let password = `${res.data["user_info"]["password"]}`;
+                playlistinfo.push(res.data["user_info"]);
+
+                Object.values(res.data["available_channels"]).forEach(ech => {
+                    if (ech.stream_type === "live") {
+                        dataTable.push({
+                            key: `${url}/${username}/${password}/${ech.stream_id}`,
+                            name: ech.name,
+                            host: `${res.data["server_info"]["url"]}:${res.data["server_info"]["port"]}`,
+                            category: ech.category_name,
+                            url: `${url}/${username}/${password}/${ech.stream_id}`,
+                            status: "Unknowen",
+                            loading: false,
+                            timeout: timeout
+                        });
+                    } else if (ech.stream_type === "movie") {
+                        dataTable.push({
+                            key: `${url}/movie/${username}/${password}/${ech.stream_id}.${ech.container_extension}`,
+                            name: ech.name,
+                            host: `${res.data["server_info"]["url"]}:${res.data["server_info"]["port"]}`,
+                            category: ech.category_name,
+                            url: `${url}/movie/${username}/${password}/${ech.stream_id}.${ech.container_extension}`,
+                            status: "Unknowen",
+                            loading: false,
+                            timeout: timeout
+                        });
+                    } else if (ech.stream_type === "created_live") {
                     }
-                }
-            )
-            .then(res => {
-                if (res.status === 200) {
-                    if (res.data["user_info"]["auth"] === 1) {
-                        // let data = [];
-                        let url = `${res.data["server_info"]["server_protocol"]}://${res.data["server_info"]["url"]}:${res.data["server_info"]["port"]}`;
-                        let username = `${res.data["user_info"]["username"]}`;
-                        let password = `${res.data["user_info"]["password"]}`;
-                        playlistinfo.push(res.data["user_info"]);
+                });
 
-                        Object.values(res.data["available_channels"]).forEach(
-                            ech => {
-                                if (ech.stream_type === "live") {
-                                    dataTable.push({
-                                        key: `${url}/${username}/${password}/${ech.stream_id}`,
-                                        name: ech.name,
-                                        host: `${res.data["server_info"]["url"]}:${res.data["server_info"]["port"]}`,
-                                        category: ech.category_name,
-                                        url: `${url}/${username}/${password}/${ech.stream_id}`,
-                                        status: "Unknowen",
-                                        loading: false,
-                                        timeout: timeout
-                                    });
-                                } else if (ech.stream_type === "movie") {
-                                    dataTable.push({
-                                        key: `${url}/movie/${username}/${password}/${ech.stream_id}.${ech.container_extension}`,
-                                        name: ech.name,
-                                        host: `${res.data["server_info"]["url"]}:${res.data["server_info"]["port"]}`,
-                                        category: ech.category_name,
-                                        url: `${url}/movie/${username}/${password}/${ech.stream_id}.${ech.container_extension}`,
-                                        status: "Unknowen",
-                                        loading: false,
-                                        timeout: timeout
-                                    });
-                                } else if (ech.stream_type === "created_live") {
-                                }
-                            }
-                        );
-
-                        setDataTable([...dataTable]);
-                        setSearch("");
-                        openNotificationSuccess();
-                    } else {
-                        openNotificationFailed("Authentication Faild");
-                    }
-                }
-                if (res.status === 404) {
-                    openNotificationFailed(res.status["message"]);
-                }
-                setLoading(false);
-            })
-            .catch(error => {
-                setLoading(false);
-
-                console.error(error);
-            });
+                setDataTable([...dataTable]);
+                setSearch("");
+                openNotificationSuccess();
+            } else {
+                openNotificationFailed("Authentication Faild");
+            }
+        }
+        if (res.status === 404) {
+            openNotificationFailed(res.status["message"]);
+        }
+        setLoading(false);
     };
     return (
         <Content
@@ -130,21 +120,29 @@ const Home = () => {
                             shape="round"
                             icon={<DownloadOutlined />}
                             block
-                            onClick={e => {
-                                axios
-                                    .get(
-                                        `${window.location.origin}/api/channels`
-                                    )
-                                    .then(res => {
-                                        if (res.status === 200) {
-                                            res.data["data"].forEach(el => {
-                                                onClickHandling(el.url);
-                                            });
-                                        }
-                                    })
-                                    .catch(error => {
-                                        console.error(error);
+                            onClick={async e => {
+                                const res = await axios.get(
+                                    `${window.location.origin}/api/channels`
+                                );
+                                if (res.status === 200) {
+                                    let RATE_LIMIT_BASE = 200; //200ms separation
+                                    let promises = [];
+                                    res.data["data"].forEach(el => {
+                                        let promise = new Promise(
+                                            (resolve, reject) => {
+                                                setTimeout(
+                                                    () =>
+                                                        onClickHandling(el.url),
+                                                    RATE_LIMIT_BASE * idx
+                                                );
+                                            }
+                                        );
+                                        promises.push(promise);
+                                        Promise.all(promises)
+                                            .then()
+                                            .catch(); // etc;
                                     });
+                                }
                             }}
                         >
                             Load Playlists
